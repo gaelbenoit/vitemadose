@@ -115,11 +115,13 @@ def _find_visit_motive_id(data: dict, visit_motive_category_id: str = None) -> O
         # après la 1ère dose, donc les gens n'ont pas besoin d'aide pour l'obtenir).
         if not visit_motive['name'].startswith('1ère injection vaccin COVID-19'):
             continue
-        # NOTE: 'visit_motive_category_id' agit comme un filtre. Il y a 2 cas :
-        # * visit_motive_category_id=None : pas de filtre, et on veut les motifs qui ne
-        # sont pas non plus rattachés à une catégorie
-        # * visit_motive_category_id=<id> : filtre => on veut les motifs qui
+        # NOTE: l'argument 'visit_motive_category_id' agit comme un filtre.
+        # Il y a 2 cas :
+        # * visit_motive_category_id=None : on veut les motifs qui ne sont PAS
+        # PAS rattachés à une catégorie
+        # * visit_motive_category_id=<id> : on veut les motifs qui
         # correspondent à la catégorie en question.
+        # La condition ci-dessous gère ces 2 cas en même temps.
         if visit_motive.get('visit_motive_category_id') == visit_motive_category_id:
             return visit_motive['id']
     return None
