@@ -1,0 +1,183 @@
+{
+  "version": 1,
+  "last_updated": "2021-04-08T17:54:20.328494+02:00",
+  "centres_disponibles": [
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination Drulingen ",
+      "url": "https://partners.doctolib.fr/centre-de-sante/drulingen/centre-de-vaccination-d-alsace-bossue?pid=practice-173639&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": "2021-04-23"
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination Molsheim ",
+      "url": "https://partners.doctolib.fr/centre-de-sante/molsheim/centre-de-vaccination-covid-19-molsheim?pid=practice-173886&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": "2021-04-20"
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de Vaccination  Internationale des HUS",
+      "url": "https://partners.doctolib.fr/hopital-public/strasbourg/chru-strasbourg-centre-de-vaccination-aztrazeneca-reserve-aux-professionnels-de-sante?pid=practice-163584&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": "2021-04-12T14:55:00.000+02:00"
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination Truchtersheim",
+      "url": "https://partners.doctolib.fr/centre-de-sante/truchtersheim/centre-de-vaccination-covid-19-truchtersheim?pid=practice-179527&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": "2021-04-15"
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination Reichstett",
+      "url": "https://partners.doctolib.fr/centre-de-sante/reichstett/centre-de-vaccination-covid-19-ville-de-reichstett?pid=practice-180903&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": "2021-04-22"
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination de Lingolshein",
+      "url": "https://partners.doctolib.fr/maison-de-sante/lingolsheim/centre-de-vaccination-anti-covid-de-lingolsheim?speciality_id=5494&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": "2021-04-26"
+    }
+  ],
+  "centres_indisponibles": [
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination UGECAM d'Illkirch-Graffenstaden ",
+      "url": "https://partners.doctolib.fr/centre-de-sante/illkirch-graffenstaden/centre-de-vaccination-covid-d-illkirch?speciality_id=5494&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination  La Bourse de Strasbourg ",
+      "url": "https://partners.doctolib.fr/etablissement-de-prevention/strasbourg/centre-de-vaccination-covid19-de-strasbourg?speciality_id=5494&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination S\u00e9lestat -Les Tanzmatten ",
+      "url": "https://partners.doctolib.fr/centre-de-vaccinations-internationales/selestat/centre-de-vaccination-covid-19-ville-de-selestat?speciality_id=5494&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination SOS M\u00e9decins Cronembourg",
+      "url": "https://partners.doctolib.fr/centre-de-vaccinations-internationales/strasbourg/centre-de-vaccination-sos-medecin-67?pid=practice-165779&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination Clinique Saint Fran\u00e7ois",
+      "url": "https://www.keldoc.com/clinique/haguenau-67500/clinique-saint-francois/centre-de-vaccination-de-la-clinique-saint-francois ",
+      "plateforme": "Autre",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination SOS M\u00e9decins Neuhof",
+      "url": "https://partners.doctolib.fr/centre-de-vaccinations-internationales/strasbourg/centre-de-vaccination-sos-medecin-67?pid=practice-165780&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination d'Ingwiller ",
+      "url": "https://partners.doctolib.fr/centre-de-sante/ingwiller/centre-de-vaccination-covid-hanau-la-petite-pierre?pid=practice-166348&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination d'Obernai- Gymnase Bugeaud ",
+      "url": "https://partners.doctolib.fr/centre-de-sante/obernai/centre-de-vaccination-covid-gymnase-bugeaud-obernai?pid=practice-168586&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "MA - STRASBOURG / Maison d'Arr\u00eat de Strasbourg",
+      "url": "",
+      "plateforme": "Autre",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination de Schiltigheim ",
+      "url": "https://vaccination-covid.keldoc.com/centre-municipal-de-sante/schiltigheim-67300/briqueterie/centre-de-vaccination-de-briqueterie",
+      "plateforme": "Keldoc",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination du SDIS",
+      "url": "",
+      "plateforme": "Autre",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination IPSDE Hautepierre",
+      "url": "https://partners.doctolib.fr/centre-de-sante/strasbourg/centre-de-vaccination-covid-19-ipsde-hautepierre?pid=practice-180542&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination de Haguenau ",
+      "url": "https://partners.doctolib.fr/hopital-public/haguenau/ch-haguenau-vaccination-covid?speciality_id=5494&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination de Wissembourg",
+      "url": "https://partners.doctolib.fr/hopital-public/wissembourg/centre-de-vaccination-covid-ch-de-wissembourg?speciality_id=5494&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination Sainte Barbe du Groupe Hospitalier Saint Vincent",
+      "url": "https://partners.doctolib.fr/etablissement-de-prevention/strasbourg/gh-saint-vincent-centre-vaccination-covid?pid=practice-162415&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination de Wasselonne ",
+      "url": "https://partners.doctolib.fr/centre-de-sante/wasselonne/centre-de-vaccination-covid-mossig-et-vignoble?pid=practice-164920&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination de Reichshoffen",
+      "url": "https://partners.doctolib.fr/centre-de-sante/reichshoffen/centre-vaccination-covid-19-du-pays-de-niederbronn-les-bains-et-de-sauer-pechelbronn?pid=practice-181029&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination du CH de Saverne  ",
+      "url": "https://partners.doctolib.fr/hopital-public/saverne/ch-saverne-centre-de-vaccination-covid-19?speciality_id=5494&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    },
+    {
+      "departement": "67",
+      "nom": "Centre de vaccination St Luc Schirmeck - antenne du groupe Saint Vincent de Strasbourg ",
+      "url": "https://partners.doctolib.fr/etablissement-de-prevention/strasbourg/gh-saint-vincent-centre-vaccination-covid?pid=practice-163151&enable_cookies_consent=1",
+      "plateforme": "Doctolib",
+      "prochain_rdv": null
+    }
+  ]
+}
