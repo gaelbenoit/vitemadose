@@ -181,13 +181,7 @@ def fetch_centre_slots(rdv_site_web, start_date, fetch_map: dict = None):
 
 def centre_iterator(platforms=None):  # pragma: no cover
     visited_centers_links = set()
-    for center in ialternate(
-        ordoclic_centre_iterator(),
-        mapharma_centre_iterator(),
-        maiia_centre_iterator(),
-        doctolib_center_iterator(),
-        gouv_centre_iterator()
-    ):
+    for center in ordoclic_centre_iterator():
         platform = get_center_platform(center["rdv_site_web"], get_default_fetch_map())
         if platforms and platform and platform.lower() not in platforms:
             continue
