@@ -32,6 +32,7 @@ class CenterInfo:
         type: Optional[str] = None,
         vaccine_type=None,
         appointment_count=0,
+        atlas_gid=None,
     ):
         self.departement = departement
         self.nom = nom
@@ -48,6 +49,7 @@ class CenterInfo:
         self.erreur = erreur
         self.last_scan_with_availabilities = None
         self.request_counts = None
+        self.atlas_gid = atlas_gid
 
     @classmethod
     def from_dict(cls, data: dict) -> CenterInfo:
@@ -129,6 +131,7 @@ class CenterInfo:
             self.vaccine_type = [
                 (vaccine.value if isinstance(vaccine, Vaccine) else vaccine) for vaccine in self.vaccine_type
             ]
+
         self.handle_next_availability()
         return self.__dict__
 

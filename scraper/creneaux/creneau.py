@@ -16,6 +16,8 @@ class Plateforme(str, Enum):
     MAPHARMA = "Mapharma"
     AVECMONDOC = "AvecMonDoc"
     MESOIGNER = "mesoigner"
+    BIMEDOC = "Bimedoc"
+    VALWIN = "Valwin"
 
 
 @dataclass
@@ -28,6 +30,7 @@ class Lieu:
     location: Optional[CenterLocation] = None
     metadata: Optional[dict] = None
     plateforme: Optional[Plateforme] = None
+    atlas_gid: Optional[int] = None
 
 
 @dataclass
@@ -35,8 +38,10 @@ class Creneau:
     horaire: datetime
     lieu: Lieu
     reservation_url: str
+    dose: list = None
     timezone: Timezone = Timezone("Europe/Paris")
     type_vaccin: Optional[List[Vaccine]] = None
+
     disponible: bool = True
 
 
@@ -45,3 +50,4 @@ class PasDeCreneau:
     lieu: Lieu
     phone_only: bool = False
     disponible: bool = False
+    dose: int = None

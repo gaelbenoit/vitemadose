@@ -3,7 +3,11 @@ from typing import Optional
 
 from utils.vmd_config import get_config
 
+from scraper.doctolib.doctolib_filters import DOCTOLIB_FILTERS
+
 VACCINE_CONF = get_config().get("vaccines", {})
+
+DOCTOLIB_APPOINTMENT_MOTIVES = DOCTOLIB_FILTERS["motives"]
 
 
 class Vaccine(str, Enum):
@@ -23,10 +27,19 @@ VACCINES_NAMES = {
 }
 
 
+def get_doctolib_vaccine_name(visit_motive_id: int, fallback: Optional[Vaccine] = None) -> Optional[Vaccine]:
+    if not visit_motive_id:
+        return fallback
+    name = DOCTOLIB_APPOINTMENT_MOTIVES[str(visit_motive_id)]["vaccine"]
+    return name
+
+
 def get_vaccine_name(name: Optional[str], fallback: Optional[Vaccine] = None) -> Optional[Vaccine]:
     if not name:
         return fallback
     name = name.lower().strip()
+    if "contre indications" in name:
+        return fallback
     for vaccine, vaccine_names in VACCINES_NAMES.items():
         for vaccine_name in vaccine_names:
             if vaccine_name in name:

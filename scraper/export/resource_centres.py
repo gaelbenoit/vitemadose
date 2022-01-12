@@ -7,7 +7,7 @@ from typing import Iterator, Union
 from .resource import Resource
 from utils.vmd_center_sort import sort_center
 from scraper.creneaux.creneau import Creneau, Lieu, Plateforme, PasDeCreneau
-from utils.vmd_utils import departementUtils, is_reserved_center
+from utils.vmd_utils import departementUtils, is_reserved_center, get_config
 from utils.vmd_blocklist import get_blocklist_urls, is_in_blocklist
 import pytz
 from scraper.creneaux.creneau import Plateforme
@@ -24,6 +24,7 @@ class ResourceTousDepartements(Resource):
         self.opendata = []
 
     def on_creneau(self, creneau: Union[Creneau, PasDeCreneau]):
+
         lieu = creneau.lieu
         centre = None
         is_blocked_center = lambda center: (is_reserved_center(center) or is_in_blocklist(center, blocklist))
@@ -40,6 +41,7 @@ class ResourceTousDepartements(Resource):
 
             if lieu.internal_id not in self.centres_disponibles:
                 self.centres_disponibles[lieu.internal_id] = self.centre(lieu).default()
+
             centre = self.centres_disponibles[lieu.internal_id]
         else:
             self.centres_bloques_mais_disponibles[lieu.internal_id] = self.centre(lieu).default()
@@ -52,6 +54,9 @@ class ResourceTousDepartements(Resource):
 
             if not creneau.type_vaccin:
                 return
+
+            if not isinstance(creneau.type_vaccin, list):
+                creneau.type_vaccin = [creneau.type_vaccin]
 
             for vaccine in creneau.type_vaccin:
                 if vaccine is not None:
@@ -74,6 +79,7 @@ class ResourceTousDepartements(Resource):
             internal_id=lieu.internal_id,
             vaccine_type=[],
             erreur=None,
+            atlas_gid=lieu.atlas_gid,
         )
 
     def location_to_dict(self, location):

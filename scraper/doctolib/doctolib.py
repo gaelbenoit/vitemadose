@@ -9,22 +9,30 @@ from typing import Dict, Iterator, List, Optional, Tuple, Set
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import dateutil
 import httpx
+import pytz
 import requests
+from collections import defaultdict
 from scraper.creneaux.creneau import Creneau, Lieu, Plateforme, PasDeCreneau
-from scraper.doctolib.doctolib_filters import is_appointment_relevant, parse_practitioner_type, is_category_relevant
-from scraper.pattern.vaccine import get_vaccine_name, Vaccine
+from scraper.doctolib.doctolib_filters import (
+    dose_number,
+    is_appointment_relevant,
+    parse_practitioner_type,
+    is_category_relevant,
+)
+from scraper.pattern.vaccine import get_vaccine_name, get_doctolib_vaccine_name, Vaccine
 from scraper.pattern.scraper_request import ScraperRequest
-from scraper.error import BlockedByDoctolibError, DoublonDoctolib, RequestError
+from scraper.error import Blocked403, DoublonDoctolib, RequestError
 from utils.vmd_config import get_conf_outputs, get_conf_platform, get_config
 from utils.vmd_utils import DummyQueue
 from cachecontrol import CacheControl
 from cachecontrol.caches.file_cache import FileCache
 
-#PLATFORM MUST BE LOW, PLEASE LET THE "lower()" IN CASE OF BAD INPUT FORMAT.
+# PLATFORM MUST BE LOW, PLEASE LET THE "lower()" IN CASE OF BAD INPUT FORMAT.
 PLATFORM = "doctolib".lower()
 
 PLATFORM_CONF = get_conf_platform(PLATFORM)
 PLATFORM_ENABLED = PLATFORM_CONF.get("enabled", True)
+SCRAPE_ONLY_ATLAS = get_config().get("scrape_only_atlas_centers", False)
 
 NUMBER_OF_SCRAPED_DAYS = get_config().get("scrape_on_n_days", 28)
 PLATFORM_DAYS_PER_PAGE = PLATFORM_CONF.get("days_per_page", 7)
@@ -50,7 +58,7 @@ if os.getenv("WITH_TOR", "no") == "yes":
     }
     DEFAULT_CLIENT = session  # type: ignore
 else:
-    DEFAULT_CLIENT = CacheControl(requests.Session(), cache=FileCache('./cache'))
+    DEFAULT_CLIENT = httpx.Client(timeout=timeout)
 
 logger = logging.getLogger("scraper")
 
@@ -95,7 +103,6 @@ class DoctolibSlots:
         # so if a practice id is present in query, only related agendas
         # should be selected.
         practice_id = _parse_practice_id(request.get_url())
-
         practice_same_adress = False
 
         rdata = None
@@ -116,7 +123,7 @@ class DoctolibSlots:
                 except:
                     request.increase_request_count("error")
                     if response.status_code == 403:
-                        raise BlockedByDoctolibError(centre_api_url)
+                        raise Blocked403(PLATFORM, centre_api_url)
                     if response.status_code == 404:
                         raise RequestError(centre_api_url, response.status_code)
                     return None
@@ -172,30 +179,34 @@ class DoctolibSlots:
             departement=request.center_info.departement,
             lieu_type=request.practitioner_type,
             metadata=request.center_info.metadata,
+            atlas_gid=request.atlas_gid,
         )
 
         timetable_start_date = datetime.fromisoformat(start_date)
 
-        for vaccine, visite_motive_ids in visit_motive_ids_by_vaccine.items():
-            agenda_ids, practice_ids, doublon_responses = _find_agenda_and_practice_ids(
-                rdata, visite_motive_ids, doublon_responses, practice_id_filter=practice_id
-            )
+        for dose, motives_for_dose in visit_motive_ids_by_vaccine.items():
+            for motive in motives_for_dose:
+                visite_motive_id = motive["visit_motive"]
+                vaccine = motive["vaccine_name"]
+                agenda_ids, practice_ids, doublon_responses = _find_agenda_and_practice_ids(
+                    rdata, visite_motive_id, doublon_responses, practice_id_filter=practice_id
+                )
 
-            if not agenda_ids or not practice_ids:
-                continue
-            agenda_ids = self.sort_agenda_ids(all_agendas, agenda_ids)
+                if not agenda_ids or not practice_ids:
+                    continue
+                agenda_ids = self.sort_agenda_ids(all_agendas, agenda_ids)
 
-            agenda_ids_q = "-".join(agenda_ids)
-            practice_ids_q = "-".join(practice_ids)
-            motive_ids_q = "-".join(list(map(lambda id: str(id), visite_motive_ids)))
-            availability = self.get_timetables(
-                request, vaccine, motive_ids_q, agenda_ids_q, practice_ids_q, timetable_start_date
-            )
-            if availability and (not first_availability or availability < first_availability):
-                first_availability = availability
+                agenda_ids_q = "-".join(agenda_ids)
+                practice_ids_q = "-".join(practice_ids)
+                motive_ids_q = visite_motive_id
+                availability = self.get_timetables(
+                    request, vaccine, motive_ids_q, agenda_ids_q, practice_ids_q, timetable_start_date, dose=dose
+                )
+                if availability and (not first_availability or availability < first_availability):
+                    first_availability = availability
 
-        if doublon_responses == 0:
-            raise DoublonDoctolib(request.get_url())
+            if doublon_responses == 0:
+                raise DoublonDoctolib(request.get_url())
 
         return first_availability
 
@@ -209,6 +220,7 @@ class DoctolibSlots:
         start_date: datetime,
         page: int = 1,
         first_availability: Optional[str] = None,
+        dose: Optional[int] = None,
     ) -> Optional[str]:
         """
         Get timetables recursively with `doctolib.pagination.days` as the number of days to query.
@@ -221,8 +233,9 @@ class DoctolibSlots:
             return first_availability
         sdate, appt, ended, next_slot = self.get_appointments(
             request,
-            start_date.strftime("%Y-%m-%d"),
+            start_date.date().strftime("%Y-%m-%d"),
             vaccine,
+            dose,
             motive_ids_q,
             agenda_ids_q,
             practice_ids_q,
@@ -230,14 +243,16 @@ class DoctolibSlots:
         )
         if ended:
             return first_availability
+
         if next_slot:
             """
             Optimize query count by jumping directly to the first availability date by using ’next_slot’ key
             """
             next_expected_date = start_date + timedelta(days=PLATFORM_DAYS_PER_PAGE)
-            next_fetch_date = datetime.strptime(next_slot, "%Y-%m-%d")
-            diff = next_fetch_date.replace(tzinfo=None) - next_expected_date.replace(tzinfo=None)
-
+            next_fetch_date = datetime.strptime(next_slot, "%Y-%m-%dT%H:%M:%S.%f%z")
+            diff = next_fetch_date.astimezone(tz=pytz.timezone("Europe/Paris")) - next_expected_date.astimezone(
+                tz=pytz.timezone("Europe/Paris")
+            )
             if page > PLATFORM_PAGES_NUMBER:
                 return first_availability
             return self.get_timetables(
@@ -249,6 +264,7 @@ class DoctolibSlots:
                 next_fetch_date,
                 page=1 + max(0, floor(diff.days / PLATFORM_DAYS_PER_PAGE)) + page,
                 first_availability=first_availability,
+                dose=dose,
             )
         if not sdate:
             return first_availability
@@ -266,6 +282,7 @@ class DoctolibSlots:
             start_date + timedelta(days=PLATFORM_DAYS_PER_PAGE),
             1 + page,
             first_availability=first_availability,
+            dose=dose,
         )
 
     def sort_agenda_ids(self, all_agendas, ids) -> List[str]:
@@ -336,6 +353,7 @@ class DoctolibSlots:
         request: ScraperRequest,
         start_date: str,
         vaccine: Vaccine,
+        dose: Optional[str],
         motive_ids_q: str,
         agenda_ids_q: str,
         practice_ids_q: str,
@@ -345,12 +363,16 @@ class DoctolibSlots:
         motive_availability = False
         first_availability = None
         appointment_count = 0
-        slots_api_url = PLATFORM_CONF.get("api").get("slots", "").format(
-            start_date=start_date,
-            motive_id=motive_ids_q,
-            agenda_ids_q=agenda_ids_q,
-            practice_ids_q=practice_ids_q,
-            limit=limit,
+        slots_api_url = (
+            PLATFORM_CONF.get("api")
+            .get("slots", "")
+            .format(
+                start_date=start_date,
+                motive_id=motive_ids_q,
+                agenda_ids_q=agenda_ids_q,
+                practice_ids_q=practice_ids_q,
+                limit=limit,
+            )
         )
         request.increase_request_count("slots")
         try:
@@ -358,10 +380,10 @@ class DoctolibSlots:
         except httpx.ReadTimeout:
             logger.warning(f"Doctolib returned error ReadTimeout for url {request.get_url()}")
             request.increase_request_count("time-out")
-            raise BlockedByDoctolibError(request.get_url())
+            raise Blocked403(PLATFORM, request.get_url())
         if response.status_code == 403 or response.status_code == 400:
             request.increase_request_count("error")
-            raise BlockedByDoctolibError(request.get_url())
+            raise Blocked403(PLATFORM, request.get_url())
 
         response.raise_for_status()
         time.sleep(self._cooldown_interval)
@@ -373,25 +395,11 @@ class DoctolibSlots:
             slot_list = availability.get("slots", [])
             if len(slot_list) == 0:
                 continue
-            if isinstance(slot_list[0], str):
-                if slot_list[0] < start_date:
-                    continue
-                if not first_availability or slot_list[0] < first_availability:
-                    first_availability = slot_list[0]
-                    motive_availability = True
-                    self.found_creneau(
-                        Creneau(
-                            horaire=dateutil.parser.parse(slot_list[0]),
-                            reservation_url=request.url,
-                            type_vaccin=[vaccine],
-                            lieu=self.lieu,
-                        )
-                    )
-
             for slot_info in slot_list:
                 if isinstance(slot_info, str):
-                    continue
-                sdate = slot_info.get("start_date", None)
+                    sdate = slot_info
+                if isinstance(slot_info, dict):
+                    sdate = slot_info.get("start_date", None)
                 if not sdate or sdate < start_date:
                     continue
                 if not first_availability or sdate < first_availability:
@@ -403,6 +411,7 @@ class DoctolibSlots:
                         reservation_url=request.url,
                         type_vaccin=[vaccine],
                         lieu=self.lieu,
+                        dose=[dose],
                     )
                 )
 
@@ -565,24 +574,15 @@ def _find_visit_motive_id(rdata: dict, visit_motive_category_id: list = None) ->
     l'ID du 1er motif de visite disponible correspondant à une 1ère dose pour
     la catégorie de motif attendue.
     """
-    relevant_motives = {}
+    relevant_motives = defaultdict(list)
     for visit_motive in rdata.get("visit_motives", []):
-        vaccine_name = repr(get_vaccine_name(visit_motive["name"]))
         # On ne gère que les 1ère doses (le RDV pour la 2e dose est en général donné
         # après la 1ère dose, donc les gens n'ont pas besoin d'aide pour l'obtenir).
-        if not is_appointment_relevant(visit_motive["name"]):
+        if not is_appointment_relevant(visit_motive["ref_visit_motive_id"]):
             continue
+        dose = dose_number(visit_motive["ref_visit_motive_id"])
+        vaccine_name = get_doctolib_vaccine_name(visit_motive["ref_visit_motive_id"])
 
-        vaccine_name = get_vaccine_name(visit_motive["name"])
-
-        # If it's not a first shot motive
-        # TODO: filter system
-        if (
-            not visit_motive.get("first_shot_motive")
-            and vaccine_name != Vaccine.JANSSEN
-            and "injection unique" not in visit_motive["name"].lower()
-        ):
-            continue
         # Si le lieu de vaccination n'accepte pas les nouveaux patients
         # on ne considère pas comme valable.
         if "allow_new_patients" in visit_motive and not visit_motive["allow_new_patients"]:
@@ -592,15 +592,18 @@ def _find_visit_motive_id(rdata: dict, visit_motive_category_id: list = None) ->
         # sont pas non plus rattachés à une catégorie
         # * visit_motive_category_id=<id> : filtre => on veut les motifs qui
         # correspondent à la catégorie en question.
-        if visit_motive_category_id is None or visit_motive.get("visit_motive_category_id") in visit_motive_category_id:
-            ids = relevant_motives.get(vaccine_name, set())
-            ids.add(visit_motive["id"])
-            relevant_motives[vaccine_name] = ids
+        if (
+            visit_motive_category_id is None
+            or visit_motive.get("visit_motive_category_id") in visit_motive_category_id
+            or visit_motive.get("visit_motive_category_id") is None
+        ):
+            relevant_motives[dose].append({"visit_motive": visit_motive["id"], "vaccine_name": vaccine_name})
+
     return relevant_motives
 
 
 def _find_agenda_and_practice_ids(
-    data: dict, visit_motive_ids: Set[int], responses=0, practice_id_filter: list = None
+    data: dict, visit_motive_id: int, responses=0, practice_id_filter: list = None
 ) -> Tuple[list, list]:
     """
     Etant donné une réponse à /booking/<centre>.json, renvoie tous les
@@ -619,19 +622,14 @@ def _find_agenda_and_practice_ids(
         if agenda["booking_disabled"]:
             continue
         for practice_id in practice_id_filter:
-            if practice_id in list(map(int, list(agenda["visit_motive_ids_by_practice_id"].keys()))) and any(
-                [
-                    vaccination_motive
-                    for vaccination_motive in visit_motive_ids
-                    if vaccination_motive in agenda["visit_motive_ids_by_practice_id"][str(practice_id)]
-                ]
+            if (
+                practice_id in list(map(int, list(agenda["visit_motive_ids_by_practice_id"].keys())))
+                and visit_motive_id in agenda["visit_motive_ids_by_practice_id"][str(practice_id)]
             ):
                 responses += 1
 
         for pratice_id_agenda, visit_motive_list_agenda in agenda["visit_motive_ids_by_practice_id"].items():
-            if (
-                len(visit_motive_ids.intersection(visit_motive_list_agenda)) > 0
-            ):  # Some motives are present in this agenda
+            if visit_motive_id in visit_motive_list_agenda:  # Some motives are present in this agenda
                 practice_ids.add(str(pratice_id_agenda))
                 agenda_ids.add(str(agenda["id"]))
     return sorted(agenda_ids), sorted(practice_ids), responses
@@ -647,6 +645,7 @@ def is_allowing_online_appointments(rdata: dict) -> bool:
             return True
     return False
 
+
 class CustomStage:
     """Generic class to wrap serialization steps with consistent ``dumps()`` and ``loads()`` methods"""
 
@@ -659,25 +658,34 @@ class CustomStage:
 def center_iterator(client=None) -> Iterator[Dict]:
     if not PLATFORM_ENABLED:
         logger.warning(f"{PLATFORM.capitalize()} scrap is disabled in configuration file.")
-        return []  
-    
-    session = CacheControl(requests.Session(), cache=FileCache('./cache'))
-    
+        return []
+
+    if SCRAPE_ONLY_ATLAS:
+        logger.warning(f"{PLATFORM.capitalize()} will only scrape ATLASSANTE centers.")
+
+    session = CacheControl(requests.Session(), cache=FileCache("./cache"))
+
     if client:
         session = client
     try:
         url = f'{get_config().get("base_urls").get("github_public_path")}{get_conf_outputs().get("centers_json_path").format(PLATFORM)}'
-        response=session.get(url)
+        response = session.get(url)
         # Si on ne vient pas des tests unitaires
         if not client:
-            if (response.from_cache):
+            if response.from_cache:
                 logger.info(f"Liste des centres pour {PLATFORM} vient du cache")
             else:
                 logger.info(f"Liste des centres pour {PLATFORM} est une vraie requête")
 
-        data=response.json()
+        data = response.json()
+
+        if SCRAPE_ONLY_ATLAS:
+            data = [center for center in data if center["atlas_gid"]]
+
         logger.info(f"Found {len(data)} {PLATFORM.capitalize()} centers (external scraper).")
+
         for center in data:
             yield center
+
     except Exception as e:
         logger.warning(f"Unable to scrape {PLATFORM} centers: {e}")

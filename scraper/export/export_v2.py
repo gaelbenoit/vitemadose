@@ -9,7 +9,7 @@ import logging
 from typing import Iterator
 from dataclasses import dataclass
 import sys
-from utils.vmd_config import get_conf_outputs
+from utils.vmd_config import get_conf_outputs, get_config
 
 logger = logging.getLogger("scraper")
 
@@ -35,6 +35,7 @@ class JSONExporter:
         count = 0
         for creneau in creneaux:
             count += 1
+
             for resource in self.resources.values():
                 resource.on_creneau(creneau)
 
@@ -49,13 +50,14 @@ class JSONExporter:
             exit(code=1)
 
         logger.info(
-            f"{lieux_avec_dispo} centres ont des disponibilités sur {lieux_avec_dispo+lieux_sans_dispo} centre scannés"
+            f"{lieux_avec_dispo} centres ont des disponibilités sur {lieux_avec_dispo+lieux_sans_dispo} centre scannés (+{lieux_bloques_mais_dispo} bloqués)"
         )
         logger.info(f"{count} créneaux dans {lieux_avec_dispo} centres")
-
-        logger.info(f"{lieux_bloques_mais_dispo} centres sont bloqués mais ont des disponibilités : ")
-        for centre_bloque in self.resources["info_centres"].centres_bloques_mais_disponibles:
-            logger.info(f"Le centre {centre_bloque} est bloqué mais a des disponibilités.")
+        print("\n")
+        if lieux_bloques_mais_dispo > 0:
+            logger.info(f"{lieux_bloques_mais_dispo} centres sont bloqués mais ont des disponibilités : ")
+            for centre_bloque in self.resources["info_centres"].centres_bloques_mais_disponibles:
+                logger.info(f"Le centre {centre_bloque} est bloqué mais a des disponibilités.")
 
         for key, resource in self.resources.items():
             outfile_path = self.outpath_format.format(key)

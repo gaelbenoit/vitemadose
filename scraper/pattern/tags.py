@@ -6,14 +6,42 @@ def tag_all(creneau: Creneau):
     return True
 
 
-def tag_preco18_55(creneau: Creneau):
+def first_dose(creneau: Creneau):
+    if creneau.dose:
+        if "1" in creneau.dose or 1 in creneau.dose:
+            return True
 
-    if (
-        Vaccine.PFIZER in creneau.type_vaccin
-        or Vaccine.MODERNA in creneau.type_vaccin
-        or Vaccine.ARNM in creneau.type_vaccin
-    ):
+
+def second_dose(creneau: Creneau):
+    if creneau.dose:
+        if "2" in creneau.dose or 2 in creneau.dose:
+            return True
+
+
+def third_dose(creneau: Creneau):
+    if creneau.dose:
+        if "3" in creneau.dose or 3 in creneau.dose:
+            return True
+
+
+
+def kid_first_dose(creneau: Creneau):
+    if creneau.dose:
+        if "1_kid" in creneau.dose:
+            return True
+
+
+def unknown_dose(creneau: Creneau):
+    if not creneau.dose:
+        return True
+    if len(creneau.dose) == 0:
         return True
 
 
-CURRENT_TAGS = {"all": tag_all, "preco18_55": tag_preco18_55}
+CURRENT_TAGS = {
+    "all": [tag_all],
+    "first_or_second_dose": [first_dose, second_dose],
+    "kids_first_dose": [kid_first_dose],
+    "third_dose": [third_dose],
+    "unknown_dose": [unknown_dose],
+}

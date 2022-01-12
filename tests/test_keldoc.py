@@ -18,8 +18,6 @@ from scraper.keldoc.keldoc_filters import (
 from scraper.pattern.scraper_request import ScraperRequest
 from scraper.pattern.center_info import CenterInfo
 
-fetch_slots.breaker_enabled(False)
-
 CENTER1_KELDOC = {
     "/api/patients/v2/clinics/2563/specialties/144/cabinets": "center1-cabinet",
     "/api/patients/v2/clinics/2563/specialties/144/cabinets/18780/motive_categories": "center1-cabinet-18780",
@@ -143,8 +141,11 @@ def test_keldoc_filters():
     assert is_appointment_relevant("Vaccin 1ère inj. +70 ans COVID")
     assert is_appointment_relevant("1ère dose (Pfizer)")
     assert is_appointment_relevant("Première injection de vaccin (Moderna)")
-    assert not is_appointment_relevant("Vaccin 2nde inj. +70 ans COVID")
-    assert not is_appointment_relevant(None)
+    appointment_relevant, dose = is_appointment_relevant("Vaccination antigrippale")
+    assert not appointment_relevant
+
+    appointment_relevant, dose = is_appointment_relevant(None)
+    assert not appointment_relevant
 
     # Test specialties
     assert not is_specialty_relevant(None)
@@ -167,7 +168,7 @@ def test_keldoc_scrape():
 
     center_info = CenterInfo.from_csv_data(centerinfo_1)
     request = ScraperRequest(center1_url, "2020-04-04", input_data=input_data, center_info=center_info)
-    keldoc.DEFAULT_CLIENT = httpx.Client(transport=httpx.MockTransport(app_center1))
+    keldoc.session = httpx.Client(transport=httpx.MockTransport(app_center1))
 
     date = fetch_slots(request)
     # When it's already killed

@@ -21,7 +21,7 @@ import requests
 from cachecontrol import CacheControl
 from cachecontrol.caches.file_cache import FileCache
 
-PLATFORM="maiia".lower()
+PLATFORM = "maiia".lower()
 PLATFORM_CONF = get_conf_platform("maiia")
 PLATFORM_API = PLATFORM_CONF.get("api", {})
 PLATFORM_ENABLED = PLATFORM_CONF.get("enabled", False)
@@ -35,6 +35,12 @@ paris_tz = timezone("Europe/Paris")
 MAIIA_URL = PLATFORM_CONF.get("base_url")
 NUMBER_OF_SCRAPED_DAYS = get_config().get("scrape_on_n_days", 28)
 
+MAIIA_DOSES = PLATFORM_SCRAPER.get("dose_types")
+
+MAIIA_DO_NOT_SCRAP_NAME = PLATFORM_SCRAPER.get("excluded_names", [])
+
+SCRAPE_ONLY_ATLAS = get_config().get("scrape_only_atlas_centers", False)
+
 
 def fetch_slots(request: ScraperRequest, creneau_q=DummyQueue, client: httpx.Client = DEFAULT_CLIENT) -> Optional[str]:
     if not PLATFORM_ENABLED:
@@ -43,6 +49,30 @@ def fetch_slots(request: ScraperRequest, creneau_q=DummyQueue, client: httpx.Cli
     # Fonction principale avec le comportement "de prod".
     maiia = MaiiaSlots(creneau_q, client)
     return maiia.fetch(request)
+
+
+def get_vaccine_type_from_name(motive_name):
+    if not motive_name:
+        return None
+    dose = None
+    if "première" in motive_name.lower() or "premiere" in motive_name.lower() or "1" in motive_name.lower():
+        dose = 1
+    if (
+        "deuxième" in motive_name.lower()
+        or "deuxieme" in motive_name.lower()
+        or "seconde" in motive_name.lower()
+        or "2" in motive_name.lower()
+    ):
+        dose = 2
+    if (
+        "rappel" in motive_name.lower()
+        or "troisième" in motive_name.lower()
+        or "troisieme" in motive_name.lower()
+        or "3" in motive_name.lower()
+    ):
+        dose = 3
+
+    return dose
 
 
 class MaiiaSlots:
@@ -91,6 +121,7 @@ class MaiiaSlots:
             departement=request.center_info.departement,
             lieu_type=request.practitioner_type,
             metadata=request.center_info.metadata,
+            atlas_gid=request.atlas_gid,
         )
         first_availability, slots_count = self.get_first_availability(
             center_id, start_date, reasons, client=self._client, request=request
@@ -106,10 +137,12 @@ class MaiiaSlots:
         request.update_appointment_count(slots_count)
         return first_availability.isoformat()
 
-    def parse_slots(self, slots: list, request: ScraperRequest) -> Optional[dt.datetime]:
+    def parse_slots(self, slots: list, request: ScraperRequest, dose: int = None) -> Optional[dt.datetime]:
         if not slots:
             return None
         first_availability = None
+        if dose:
+            dose = [dose]
         for slot in slots:
             self.found_creneau(
                 Creneau(
@@ -117,6 +150,7 @@ class MaiiaSlots:
                     reservation_url=request.url,
                     type_vaccin=[slot.get("vaccine_type")],
                     lieu=self.lieu,
+                    dose=dose,
                 )
             )
 
@@ -218,14 +252,29 @@ class MaiiaSlots:
         slots_count = 0
         for consultation_reason in reasons:
             consultation_reason_name_quote = quote(consultation_reason.get("name"), "")
-            if "injectionType" in consultation_reason and consultation_reason["injectionType"] in ["FIRST"]:
+            if any([motive.lower() in consultation_reason["name"].lower() for motive in MAIIA_DO_NOT_SCRAP_NAME]):
+                continue
+
+            if "injectionType" in consultation_reason:
                 slots = self.get_slots(
                     center_id, consultation_reason_name_quote, start_date, end_date, client=client, request=request
                 )
+                dose = None
+                dose_name = consultation_reason["injectionType"]
+
+                if dose_name:
+                    if dose_name != "NONE":
+                        dose = MAIIA_DOSES[dose_name]
+                    else:
+                        if not "covid" in consultation_reason.get("name").lower():
+                            continue
+                if not dose:
+                    dose = get_vaccine_type_from_name(consultation_reason.get("name"))
+
                 if slots:
                     for slot in slots:
                         slot["vaccine_type"] = get_vaccine_name(consultation_reason.get("name"))
-                slot_availability = self.parse_slots(slots, request)
+                slot_availability = self.parse_slots(slots, request, dose)
                 if slot_availability is None:
                     continue
                 slots_count += len(slots)
@@ -243,28 +292,38 @@ def get_reasons(
         return []
     return result.get("items", [])
 
+
 def center_iterator(client=None) -> Iterator[Dict]:
     if not PLATFORM_ENABLED:
         logger.warning(f"{PLATFORM.capitalize()} scrap is disabled in configuration file.")
-        return []  
-    
-    session = CacheControl(requests.Session(), cache=FileCache('./cache'))
-    
+        return []
+
+    if SCRAPE_ONLY_ATLAS:
+        logger.warning(f"{PLATFORM.capitalize()} will only scrape ATLASSANTE centers.")
+
+    session = CacheControl(requests.Session(), cache=FileCache("./cache"))
+
     if client:
         session = client
     try:
         url = f'{get_config().get("base_urls").get("github_public_path")}{get_conf_outputs().get("centers_json_path").format(PLATFORM)}'
-        response=session.get(url)
+        response = session.get(url)
         # Si on ne vient pas des tests unitaires
         if not client:
-            if (response.from_cache):
+            if response.from_cache:
                 logger.info(f"Liste des centres pour {PLATFORM} vient du cache")
             else:
                 logger.info(f"Liste des centres pour {PLATFORM} est une vraie requête")
 
-        data=response.json()
+        data = response.json()
+
+        if SCRAPE_ONLY_ATLAS:
+            data = [center for center in data if center["atlas_gid"]]
+
         logger.info(f"Found {len(data)} {PLATFORM.capitalize()} centers (external scraper).")
+
         for center in data:
             yield center
+
     except Exception as e:
         logger.warning(f"Unable to scrape {PLATFORM} centers: {e}")

@@ -39,9 +39,9 @@ lister_contributeurs:
 trouver_les_rdv:
   stage: scrape
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8-alpine
-  timeout: "12 minutes"
+  timeout: "55 minutes"
   tags:
-    - ovh
+    - clevercloud
   before_script:
     - apk add --no-cache make curl
     - ./scripts/install
@@ -63,7 +63,7 @@ pages:
   stage: deploy
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8-alpine
   tags:
-    - ovh
+    - clevercloud
   script:
     - mkdir -p public
     - cp -r data/output/* public/

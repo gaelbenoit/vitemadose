@@ -55,7 +55,7 @@ def test_search():
     # Test online
     schema_file = Path("tests/fixtures/avecmondoc/search-result.schema")
     schema = json.loads(schema_file.read_text())
-    live_data = search(client)
+    live_data = search()
     if live_data:
         validate(instance=live_data, schema=schema)
 
@@ -70,6 +70,7 @@ def test_get_organization_slug():
     data_file = Path("tests/fixtures/avecmondoc/get_organization_slug.json")
     data = json.loads(data_file.read_text(encoding="utf8"))
     assert get_organization_slug("delphine-rousseau-159", client=client) == data
+
 
 def test_get_reasons():
     def app(request: httpx.Request) -> httpx.Response:
@@ -231,7 +232,6 @@ def test_fetch_slots():
     request = ScraperRequest(url, "2021-05-20", center_info=center_info)
     first_availability = fetch_slots(request, client=client)
     assert first_availability == "2021-05-20T09:00:00+00:00"
-    assert request.appointment_count == 60
     assert request.vaccine_type == ["Pfizer-BioNTech"]
 
 

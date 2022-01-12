@@ -1,6 +1,7 @@
 import logging
 
 from terminaltables import AsciiTable
+from operator import itemgetter
 
 
 class CustomFormatter(logging.Formatter):
@@ -62,6 +63,37 @@ def enable_logger_for_debug():
         root_logger.addHandler(ch)
 
 
+def log_requests_time(centres):
+    from .vmd_utils import get_config
+
+    timeout = get_config().get("logger").get("log_requests_above")
+
+    print(f"\n\nToo long requests list (>{timeout} seconds):")
+    print("Careful, doesn't take account of multiprocessing use")
+
+    # Time in seconds above which request is considered too long
+    datatable = []
+
+    for centre in centres:
+        if centre.internal_id and centre.plateforme:
+            if centre.time_for_request > timeout:
+                datatable.append(
+                    [
+                        centre.plateforme,
+                        centre.internal_id.lower().split(centre.plateforme.lower())[1]
+                        if centre.plateforme.lower() in centre.internal_id.lower()
+                        else centre.internal_id,
+                        int(centre.time_for_request),
+                    ]
+                )
+
+    datatable = sorted(datatable, key=itemgetter(0, 2))
+
+    asciitable = [["Platform", "Internal_id", "Request time (sec.)"]] + datatable
+    too_long_requests = AsciiTable(asciitable)
+    print(too_long_requests.table)
+
+
 def log_requests(request):
     logger = get_logger()
     if not request or not request.requests:
@@ -79,7 +111,7 @@ def log_platform_requests(centers):
     logger = get_logger()
     platforms = {}
 
-    print("Requests count:")
+    print("\n\nRequests count:")
     # Not fan of the way I do this
     # maybe python has builtin ways to do this in an easier way
     if not centers:
@@ -111,3 +143,4 @@ def log_platform_requests(centers):
 
     table = AsciiTable(datatable)
     print(table.table)
+    print("\n")

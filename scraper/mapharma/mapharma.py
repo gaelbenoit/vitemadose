@@ -1,5 +1,4 @@
 import os
-from scraper.avecmondoc.avecmondoc import DEFAULT_CLIENT
 
 import httpx
 import json
@@ -19,9 +18,6 @@ from utils.vmd_config import get_conf_platform, get_config
 from scraper.profiler import Profiling
 from scraper.creneaux.creneau import Creneau, Lieu, Plateforme, PasDeCreneau
 from utils.vmd_utils import departementUtils, DummyQueue
-import requests
-from cachecontrol import CacheControl
-from cachecontrol.caches.file_cache import FileCache
 
 MAPHARMA_CONF = get_conf_platform("mapharma")
 MAPHARMA_API = MAPHARMA_CONF.get("api", {})
@@ -42,15 +38,23 @@ MAPHARMA_OPEN_DATA_URL = MAPHARMA_API.get("opendata", "")
 MAPHARMA_OPEN_DATA_URL_FALLBACK = MAPHARMA_API.get("opendata_fallback", "")
 NUMBER_OF_SCRAPED_DAYS = get_config().get("scrape_on_n_days", 28)
 
-session_pre = requests.Session()
-session_pre.headers.update(MAPHARMA_HEADERS)
-DEFAULT_CLIENT =  CacheControl(session_pre, cache=FileCache('./cache'))
+BOOSTER_VACCINES = get_config().get("vaccines_allowed_for_booster", [])
+
+DEFAULT_CLIENT = httpx.Client(headers=MAPHARMA_HEADERS)
 logger = logging.getLogger("scraper")
 paris_tz = timezone("Europe/Paris")
 
 campagnes_valides = []
 campagnes_inconnues = []
 opendata = []
+
+
+def get_possible_dose_numbers(vaccine_list: list):
+    if not vaccine_list:
+        return []
+    if any([vaccine in BOOSTER_VACCINES for vaccine in vaccine_list]):
+        return [1, 2, 3]
+    return [1, 2]
 
 
 @Profiling.measure("mapharma_slot")
@@ -76,7 +80,18 @@ def get_mapharma_opendata(
     try:
         request = client.get(opendata_url, headers=MAPHARMA_HEADERS)
         request.raise_for_status()
+
+        # Let's update opendata file
+        f = open(MAPHARMA_OPEN_DATA_FILE, "w", encoding="utf-8")
+        f.write(
+            json.dumps(
+                {"artifact_date": datetime.today().strftime("%Y-%m-%d %H:%M:%S"), "data": request.json()}, indent=2
+            )
+        )
+        f.close()
+
         return request.json()
+
     except httpx.TimeoutException as hex:
         logger.warning(f"{opendata_url} timed out {hex}")
     except httpx.HTTPStatusError as hex:
@@ -84,7 +99,7 @@ def get_mapharma_opendata(
     try:
         request = client.get(opendata_url_fallback, headers=MAPHARMA_HEADERS)
         request.raise_for_status()
-        return request.json()
+        return request.json()["data"]
     except httpx.TimeoutException as hex:
         logger.warning(f"{opendata_url_fallback} timed out {hex}")
     except httpx.HTTPStatusError as hex:
@@ -143,7 +158,7 @@ class Mapharma:
         opendata = list()
         try:
             with open(self.opendata_file, "r", encoding="utf8") as f:
-                opendata = json.load(f)
+                opendata = json.load(f)["data"]
         except IOError as ioex:
             logger.warning(f"Reading {self.opendata_file} returned error {ioex}")
         for pharmacy in opendata:
@@ -188,10 +203,13 @@ class Mapharma:
                     timestamp = datetime.strptime(f"{day} {time}", "%Y-%m-%d %H:%M")
                     slot_count += day_slot["places_dispo"]
                     for appointment in range(1, day_slot["places_dispo"] + 1):
+                        dose_ranks = get_possible_dose_numbers([vaccine])
+
                         self.found_creneau(
                             Creneau(
                                 horaire=paris_tz.localize(timestamp),
                                 reservation_url=request.url,
+                                dose=dose_ranks,
                                 type_vaccin=[vaccine],
                                 lieu=self.lieu,
                             )
@@ -306,9 +324,7 @@ def centre_iterator():
     if not opendata:
         logger.error("Mapharma unable to get centre list")
         return
-    # on sauvegarde le payload json reçu si jamais panne du endpoint
-    with open(MAPHARMA_OPEN_DATA_FILE, "w", encoding="utf8") as f:
-        json.dump(opendata, f, indent=2)
+
     for pharmacy in opendata:
         for campagne in pharmacy.get("campagnes"):
             if not is_campagne_valid(campagne):

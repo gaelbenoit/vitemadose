@@ -11,17 +11,15 @@ from scraper.pattern.vaccine import get_vaccine_name
 from scraper.pattern.scraper_request import ScraperRequest
 from scraper.profiler import Profiling
 from utils.vmd_config import get_conf_platform, get_config, get_conf_outputs
-from scraper.error import BlockedByMesoignerError
+from scraper.error import Blocked403
 from utils.vmd_utils import DummyQueue, append_date_days
 from typing import Dict, Iterator, List, Optional
 import dateutil
 from cachecontrol import CacheControl
 from cachecontrol.caches.file_cache import FileCache
-from cachecontrol import CacheControl
-from cachecontrol.caches.file_cache import FileCache
 
 
-PLATFORM="mesoigner".lower()
+PLATFORM = "mesoigner"
 
 PLATFORM_CONF = get_conf_platform("mesoigner")
 PLATFORM_ENABLED = PLATFORM_CONF.get("enabled", False)
@@ -33,6 +31,8 @@ MESOIGNER_APIs = PLATFORM_CONF.get("api", "")
 SCRAPER_CONF = PLATFORM_CONF.get("center_scraper", {})
 CENTER_LIST_URL = PLATFORM_CONF.get("api", {}).get("center_list", {})
 
+BOOSTER_VACCINES = get_config().get("vaccines_allowed_for_booster", [])
+
 timeout = httpx.Timeout(PLATFORM_CONF.get("timeout", 30), connect=PLATFORM_CONF.get("timeout", 30))
 
 if os.getenv("WITH_TOR", "no") == "yes":
@@ -43,9 +43,17 @@ if os.getenv("WITH_TOR", "no") == "yes":
     }
     DEFAULT_CLIENT = session  # type: ignore
 else:
-    DEFAULT_CLIENT = CacheControl(requests.Session(), cache=FileCache('./cache'))
+    DEFAULT_CLIENT = httpx.Client(timeout=timeout)
 
 logger = logging.getLogger("scraper")
+
+
+def get_possible_dose_numbers(vaccine_list: list):
+    if not vaccine_list:
+        return []
+    if any([vaccine in BOOSTER_VACCINES for vaccine in vaccine_list]):
+        return [1, 2, 3]
+    return [1, 2]
 
 
 @Profiling.measure("mesoigner_slot")
@@ -93,7 +101,7 @@ class MesoignerSlots:
 
         if response.status_code == 403:
             request.increase_request_count("error")
-            raise BlockedByMesoignerError(centre_api_url)
+            raise Blocked403(PLATFORM, centre_api_url)
 
         response.raise_for_status()
         rdata = response.json()
@@ -115,7 +123,6 @@ class MesoignerSlots:
 
         start_date = request.get_start_date()
 
-        # print(slots_api.get("slots", []))
         for day in slots_api.get("slots", []):
 
             for day_date, appointments_infos in day.items():
@@ -125,10 +132,13 @@ class MesoignerSlots:
                 for one_appointment_info in appointments_infos:
                     appointment_exact_date = one_appointment_info["slot_beginning"]
 
+                    dose_ranks = get_possible_dose_numbers(one_appointment_info["available_vaccines"])
+
                     self.found_creneau(
                         Creneau(
                             horaire=dateutil.parser.parse(appointment_exact_date),
                             reservation_url=request.url,
+                            dose=dose_ranks,
                             type_vaccin=one_appointment_info["available_vaccines"],
                             lieu=self.lieu,
                         )
@@ -147,23 +157,23 @@ class MesoignerSlots:
 def center_iterator(client=None) -> Iterator[Dict]:
     if not PLATFORM_ENABLED:
         logger.warning(f"{PLATFORM.capitalize()} scrap is disabled in configuration file.")
-        return []  
-    
-    session = CacheControl(requests.Session(), cache=FileCache('./cache'))
-    
+        return []
+
+    session = CacheControl(requests.Session(), cache=FileCache("./cache"))
+
     if client:
         session = client
     try:
         url = f'{get_config().get("base_urls").get("github_public_path")}{get_conf_outputs().get("centers_json_path").format(PLATFORM)}'
-        response=session.get(url)
+        response = session.get(url)
         # Si on ne vient pas des tests unitaires
         if not client:
-            if (response.from_cache):
+            if response.from_cache:
                 logger.info(f"Liste des centres pour {PLATFORM} vient du cache")
             else:
                 logger.info(f"Liste des centres pour {PLATFORM} est une vraie requête")
 
-        data=response.json()
+        data = response.json()
         logger.info(f"Found {len(data)} {PLATFORM.capitalize()} centers (external scraper).")
         for center in data:
             yield center

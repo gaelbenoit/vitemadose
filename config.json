@@ -1,5 +1,6 @@
 {
-    "scrape_on_n_days": 28,
+    "scrape_on_n_days": 30,
+    "scrape_only_atlas_centers": false,
     "base_urls": {
         "gitlab_public_path": "https://vitemadose.gitlab.io/vitemadose/",
         "github_public_path": "https://raw.githubusercontent.com/CovidTrackerFr/vitemadose/data-auto/"
@@ -15,7 +16,7 @@
             "dep_pop": "data/input/dep-pop.csv"
         },
         "from_data_gouv_website": {
-            "centers_gouv": "https://www.data.gouv.fr/fr/datasets/r/5cb21a85-b0b0-4a65-a249-806a040ec372",
+            "centers_gouv": "https://www.data.gouv.fr/fr/datasets/r/d0566522-604d-4af6-be44-a26eefa01756",
             "rdv_gouv": "https://www.data.gouv.fr/fr/datasets/r/b7bd49cd-904c-4c5d-b60f-018b51df9b0e"
         },
         "from_gitlab_public": {
@@ -23,8 +24,6 @@
             "center_types": "stats_center_types.json",
             "by_date": "stats_by_date.json",
             "by_date_dep": "stats_by_date_dep.json"
-
-
         }
     },
     "outputs": {
@@ -39,7 +38,8 @@
     "vaccines": {
         "Pfizer-BioNTech": [
             "pfizer",
-            "biontech"
+            "biontech",
+            "pfizer-biontech"
         ],
         "Moderna": [
             "moderna"
@@ -76,36 +76,74 @@
         "professionnels prioritaires",
         "personnels prioritaires"
     ],
+    "vaccines_allowed_for_booster": [
+        "Pfizer-BioNTech",
+        "Moderna"
+    ],
     "platforms": {
         "doctolib": {
             "enabled": true,
-            "timeout": 5,
+            "timeout": 10,
             "recognized_urls": [
                 "https://partners.doctolib.fr",
                 "https://www.doctolib.fr"
             ],
-            "build_url": "https://www.doctolib.fr{url_path}?pid={place_id}",
+            "build_url": "https://www.doctolib.fr/vaccination-covid-19/{url_path}?pid={place_id}",
             "api": {
                 "booking": "https://partners.doctolib.fr/booking/{centre}.json",
                 "slots": "https://partners.doctolib.fr/availabilities.json?start_date={start_date}&visit_motive_ids={motive_id}&agenda_ids={agenda_ids_q}&insurance_sector=public&practice_ids={practice_ids_q}&destroy_temporary=true&limit={limit}",
-                "scraper": "http://www.doctolib.fr/vaccination-covid-19/france.json?page={0}",
-                "scraper_dep": "http://www.doctolib.fr/vaccination-covid-19/{0}.json?page={1}"
+                "scraper": "http://partners.doctolib.fr/vaccination-covid-19/france.json?page={0}",
+                "scraper_dep": "http://partners.doctolib.fr/vaccination-covid-19/{0}.json?page={1}"
             },
-            "request_sleep": 0.05,
-            "days_per_page": 7,
+            "request_sleep": 0.01,
+            "days_per_page": 14,
             "filters": {
-                "appointment_reason": [
-                    "1 ere injection",
-                    "1 ère injection",
-                    "1er injection",
-                    "1ere dose",
-                    "1ere injection",
-                    "1ère injection",
-                    "1re injection",
-                    "vaccination",
-                    "Vaccin COVID-19",
-                    "injection unique"
-                ],
+                "motives": {
+                    "7107": {
+                        "dose": "1",
+                        "vaccine": "AstraZeneca"
+                    },
+                    "8741": {
+                        "dose": "1",
+                        "vaccine": "AstraZeneca"
+                    },
+                    "6970": {
+                        "dose": "1",
+                        "vaccine": "Pfizer-BioNTech"
+                    },
+                    "8739": {
+                        "dose": "1",
+                        "vaccine": "Pfizer-BioNTech"
+                    },
+                    "8740": {
+                        "dose": "1",
+                        "vaccine": "Moderna"
+                    },
+                    "7005": {
+                        "dose": "1",
+                        "vaccine": "Moderna"
+                    },
+                    "7945": {
+                        "dose": "1",
+                        "vaccine": "Janssen"
+                    },
+                    "8192": {
+                        "dose": "3",
+                        "vaccine": "Pfizer-BioNTech"
+                    },
+                    "8193": {
+                        "dose": "3",
+                        "vaccine": "Moderna"
+                    },
+                    "10515": {
+                        "dose": "1_kid",
+                        "vaccine": "Pfizer-BioNTech"
+                    },
+                    "10516": {
+                        "dose": "1_kid",
+                        "vaccine": "Pfizer-BioNTech"
+                    }
+                },
                 "appointment_category": [
                     "18 à 54",
                     "55 ans",
@@ -151,7 +189,9 @@
                     "moderna",
                     "astra",
                     "astrazeneca",
-                    "pré-consultation"
+                    "pré-consultation",
+                    "vaccination",
+                    "scolaire"
                 ]
             },
             "center_scraper": {
@@ -189,7 +229,7 @@
         },
         "keldoc": {
             "enabled": true,
-            "timeout": 20,
+            "timeout": 60,
             "recognized_urls": [
                 "https://vaccination-covid.keldoc.com",
                 "https://keldoc.com"
@@ -215,34 +255,248 @@
                 ],
                 "vaccination_speciality_ids": [
                     "144",
-                    "496"
+                    "496",
+                    "153"
                 ],
                 "appointment_skill": [
                     "Centre de vaccination COVID-19"
                 ],
-                "appointment_reason": [
-                    "1 er inj",
-                    "1 ere inj",
-                    "1 ère inj",
-                    "1ere dose",
-                    "1ère dose",
-                    "1ere inj",
-                    "1ère inj",
-                    "covid19 - vaccination",
+                "first_dose_reasons": [
+                    "INJ1",
+                    "1re",
+                    "1INJ",
+                    "INJ 1",
+                    "PFZ 1",
+                    "PFZ1",
+                    "1ère",
+                    "1ème",
+                    "1er",
+                    "1 ère",
+                    "1ière",
+                    "1 er",
+                    "Inj 1",
                     "inj 1",
-                    "inj. 1",
+                    "Inj1",
                     "inj1",
+                    "inj. 1",
+                    "Inj. 1",
+                    "prem",
+                    "Prem",
+                    "dose 1",
+                    "unique",
+                    "UNIQUE",
+                    "Unique",
+                    "1 seule",
+                    "injection 1",
                     "1 injection",
-                    "première dose",
+                    "Injection 1",
+                    "Injection sans indication de rappel",
+                    "antécédent",
+                    "ATCD",
+                    "1ERE",
+                    "ayant eu",
+                    "Mono",
+                    "1 INJ",
                     "1° injection",
-                    "première injection",
-                    "mono-injection",
-                    "mono injection",
-                    "mono-dose",
-                    "mono dose",
-                    "injection unique",
-                    "première injection",
-                    "vaccination ouverte"
+                    "Janssen",
+                    "Prémière",
+                    "sans indication de rappel",
+                    "johnson",
+                    "1ére INJ",
+                    "1ére",
+                    "Une seule"
+                ],
+                "second_dose_reason": [
+                    "INJ2",
+                    "2INJ",
+                    "INJ 2",
+                    "PFZ 2",
+                    "PFZ2",
+                    "PF2",
+                    "2e",
+                    "2ème",
+                    "2eme",
+                    "2ieme",
+                    "2ième",
+                    "2 ème",
+                    "2 -ème",
+                    "2 eme",
+                    "2 em",
+                    "2me",
+                    "2nd",
+                    "2 nd",
+                    "2NDE",
+                    "2de",
+                    "Inj 2",
+                    "inj 2",
+                    "Inj2",
+                    "inj. 2",
+                    "Inj. 2",
+                    "inj2",
+                    "deux",
+                    "Deux",
+                    "dose 2",
+                    "injection 2",
+                    "2 injection",
+                    "Injection 2",
+                    "Seconde",
+                    "seconde",
+                    "ayant reçu",
+                    "suite à une 1ère",
+                    "J21",
+                    "après Primo AZ",
+                    "2 éme",
+                    "2 INJ",
+                    "2° injection",
+                    "2EME",
+                    "2éme"
+                ],
+                "dose1_filter": [
+                    "INJ1",
+                    "1re",
+                    "1INJ",
+                    "INJ 1",
+                    "PFZ 1",
+                    "PFZ1",
+                    "1ère",
+                    "1ème",
+                    "1er",
+                    "1 ère",
+                    "1ière",
+                    "1 er",
+                    "Inj 1",
+                    "inj 1",
+                    "Inj1",
+                    "inj1",
+                    "inj. 1",
+                    "Inj. 1",
+                    "prem",
+                    "Prem",
+                    "dose 1",
+                    "unique",
+                    "UNIQUE",
+                    "Unique",
+                    "1 seule",
+                    "injection 1",
+                    "1 injection",
+                    "Injection 1",
+                    "Injection sans indication de rappel",
+                    "antécédent",
+                    "ATCD",
+                    "1ERE",
+                    "ayant eu",
+                    "Mono",
+                    "1 INJ",
+                    "1° injection",
+                    "Janssen",
+                    "Prémière",
+                    "sans indication de rappel",
+                    "johnson",
+                    "1ére INJ",
+                    "1ére",
+                    "Une seule"
+                ],
+                "dose2_filter": [
+                    "INJ2",
+                    "2INJ",
+                    "INJ 2",
+                    "PFZ 2",
+                    "PFZ2",
+                    "PF2",
+                    "2e",
+                    "2ème",
+                    "2eme",
+                    "2ieme",
+                    "2ième",
+                    "2 ème",
+                    "2 -ème",
+                    "2 eme",
+                    "2 em",
+                    "2me",
+                    "2nd",
+                    "2 nd",
+                    "2NDE",
+                    "2de",
+                    "Inj 2",
+                    "inj 2",
+                    "Inj2",
+                    "inj. 2",
+                    "Inj. 2",
+                    "inj2",
+                    "deux",
+                    "Deux",
+                    "dose 2",
+                    "injection 2",
+                    "2 injection",
+                    "Injection 2",
+                    "Seconde",
+                    "seconde",
+                    "ayant reçu",
+                    "suite à une 1ère",
+                    "J21",
+                    "après Primo AZ",
+                    "2 éme",
+                    "2 INJ",
+                    "2° injection",
+                    "2EME",
+                    "2éme"
+                ],
+                "rappel_filter": [
+                    "INJ3",
+                    "3e",
+                    "3ème",
+                    "3eme",
+                    "3EME",
+                    "3ieme",
+                    "3ième",
+                    "3 ème",
+                    "3 eme",
+                    "Inj 3",
+                    "inj 3",
+                    "Inj3",
+                    "inj. 3",
+                    "Inj. 3",
+                    "inj3",
+                    "trois",
+                    "Trois",
+                    "dose 3",
+                    "injection 3",
+                    "Injection 3",
+                    "Troisième",
+                    "troisième",
+                    "RAPPEL",
+                    "Rappel",
+                    "rappel",
+                    "3 à 6 mois",
+                    "6 mois",
+                    "INJ4",
+                    "4e",
+                    "4ème",
+                    "4eme",
+                    "4EME",
+                    "4ieme",
+                    "4ième",
+                    "4 ème",
+                    "4 eme",
+                    "Inj 4",
+                    "inj 4",
+                    "Inj4",
+                    "inj. 4",
+                    "Inj. 4",
+                    "inj4",
+                    "dose 4",
+                    "injection 4",
+                    "Injection 4"
+                ],
+                "immuno_filter": [
+                    "IMM",
+                    "imm",
+                    "Imm",
+                    "greffés",
+                    "pathologie justifiant"
+                ],
+                "kid_first_dose_filter": [
+                    "11"
                 ]
             },
             "center_scraper": {
@@ -281,7 +535,7 @@
                 "https://www.maiia.com"
             ],
             "api": {
-                "scraper": "https://www.maiia.com/api/pat-public/hcd?distanceMax=10000&AllVaccinationPlaces=true&speciality.shortName={speciality}",
+                "scraper": "https://www.maiia.com/api/pat-public/hcd?AllVaccinationPlaces=true&speciality.shortName={speciality}",
                 "slots": "https://www.maiia.com/api/pat-public/availabilities?centerId={center_id}&consultationReasonName={consultation_reason_name}&from={start_date}&to={end_date}",
                 "next_slot": "https://www.maiia.com/api/pat-public/availability-closests?centerId={center_id}&consultationReasonName={consultation_reason_name}&from={start_date}",
                 "motives": "https://www.maiia.com/api/pat-public/consultation-reason-hcd?rootCenterId={center_id}"
@@ -303,7 +557,10 @@
                 "excluded_names": [
                     "test",
                     "antigenique",
-                    "antigénique"
+                    "antigénique",
+                    "pcr",
+                    "antigrippale",
+                    "grippe"
                 ],
                 "business_days": {
                     "Lundi": "MONDAY",
@@ -313,23 +570,23 @@
                     "Vendredi": "FRIDAY",
                     "Samedi": "SATURDAY",
                     "Dimanche": "SUNDAY"
+                },
+                "dose_types": {
+                    "FIRST": 1,
+                    "SECOND": 2,
+                    "BOOSTER": 3
                 }
-            },
-            "filters": {
-                "injection_type": [
-                    "FIRST"
-                ]
             }
         },
         "mapharma": {
             "enabled": true,
-            "timeout": 5,
+            "timeout": 15,
             "recognized_urls": [
                 "https://mapharma.net"
             ],
             "api": {
                 "opendata": "https://mapharma.net/opendata/rdv",
-                "opendata_fallback": "https://raw.githubusercontent.com/CovidTrackerFr/vitemadose/data-auto/data/output/mapharma_open_data.json",
+                "opendata_fallback": "https://vitemadose.gitlab.io/vitemadose/mapharma_open_data.json",
                 "slots": "https://mapharma.net/api/public/calendar/{campagneId}/{start_date}/{optionId}"
             },
             "headers": {
@@ -379,23 +636,25 @@
                 "profile_professionals": "https://api.ordoclic.fr/v1/professionals/profile/{slug}",
                 "profile_public_entities": "https://api.ordoclic.fr/v1/public/entities/profile/{slug}"
             },
-            "filters": {
-                "valid_injections": [1]
-            },
             "scraper_payload": {
                 "page": 1,
                 "per_page": 10000,
                 "in.isPublicProfile": true,
                 "in.isCovidVaccineSupported": true,
                 "or.covidOnlineBookingAvailabilities.vaccineAstraZeneca1": true,
+                "or.covidOnlineBookingAvailabilities.vaccineAstraZeneca2": true,
                 "or.covidOnlineBookingAvailabilities.vaccineJanssen1": true,
                 "or.covidOnlineBookingAvailabilities.vaccinePfizer1": true,
-                "or.covidOnlineBookingAvailabilities.vaccineModerna1": true
+                "or.covidOnlineBookingAvailabilities.vaccinePfizer2": true,
+                "or.covidOnlineBookingAvailabilities.vaccinePfizer3": true,
+                "or.covidOnlineBookingAvailabilities.vaccineModerna1": true,
+                "or.covidOnlineBookingAvailabilities.vaccineModerna2": true,
+                "or.covidOnlineBookingAvailabilities.vaccineModerna3": true
             }
         },
         "avecmondoc": {
             "enabled": true,
-            "timeout": 25,
+            "timeout": 20,
             "days_per_page": 7,
             "recognized_urls": [
                 "https://patient.avecmondoc.com/"
@@ -403,7 +662,7 @@
             "patient_url": "https://patient.avecmondoc.com/fiche/structure/{slug}",
             "search_tries": 2,
             "api": {
-                "search": "https://api.avecmondoc.com/api/Organizations/public/covid?limit={0}",
+                "search": "https://api.avecmondoc.com/api/Organizations/public/covid",
                 "search_page_size": 10,
                 "get_organization_slug": "https://api.avecmondoc.com/api/Organizations/slug/{slug}",
                 "get_reasons": "https://api.avecmondoc.com/api/Organizations/getConsultationReasons",
@@ -442,7 +701,7 @@
         },
         "mesoigner": {
             "enabled": true,
-            "timeout": 30,
+            "timeout": 10,
             "recognized_urls": [
                 "mesoigner.fr"
             ],
@@ -468,6 +727,54 @@
                     "dimanche"
                 ]
             }
+        },
+        "bimedoc": {
+            "enabled": true,
+            "timeout": 15,
+            "recognized_urls": [
+                "app.bimedoc.com"
+            ],
+            "center_types": {
+                "pharmacie": "drugstore"
+            },
+            "api": {
+                "center_list": "https://server.bimedoc.com/vmd/pharmacy-with-slots?start_date={start_date}&end_date={end_date}",
+                "slots": "https://server.bimedoc.com/vmd/pharmacy-with-slots/{pharmacy_id}?start_date={start_date}&end_date={end_date}"
+            },
+            "appointment_url": "https://app.bimedoc.com/application/scheduler/{pharmacy_id}?vmd=true",
+            "center_scraper": {
+                "result_path": "data/output/bimedoc_centers.json",
+                "business_days": [
+                    "lundi",
+                    "mardi",
+                    "mercredi",
+                    "jeudi",
+                    "vendredi",
+                    "samedi",
+                    "dimanche"
+                ]
+            }
+        },
+        "Valwin": {
+            "enabled": true,
+            "timeout": 15,
+            "center_types": {
+                "pharmacie": "drugstore"
+            },
+            "api": {
+                "center_list": "https://pharma-api.epharmacie.pro/global/api/meetings/v2/pharmacies-with-vaccines",
+                "slots": "https://pharma-api.epharmacie.pro/global/api/meetings/v2/{id}/slots?pageSize=999999999"
+            },
+            "build_urls": {
+                "campaign_choice": "{pharmacy_link}/animations",
+                "campaign_target": "{pharmacy_link}/animation-details/{vaccine_id}/1/60"
+            },
+            "center_scraper": {
+                "result_path": "data/output/valwin_centers.json"
+            }
         }
+    },
+    "logger": {
+        "log_requests_above": 20
     }
 }
